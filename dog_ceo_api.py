@@ -13,16 +13,41 @@ import requests
 class DogCeoApi:
     """A class which instance communicates with the dog API."""
 
-    def __init__(self) -> None:
-        """Initialize a dog API instance."""
-        pass
+    API_ROOT_DEFAULT = 'https://dog.ceo/api'
+
+    def __init__(self, *, api_root: str = API_ROOT_DEFAULT) -> None:
+        """Initialize a dog API instance.
+
+        Args:
+            api_root (str): Optional override for the API root URL.
+        """
+        self._api_root = api_root
 
     def get_all_breeds_subbreeds(self) -> dict[str, list[str]]:
         """Return a dictionary with all available dog breeds with their
         respective subbreeds (if any).
-
         """
-        response = requests.get('https://dog.ceo/api/breeds/list/all')
+        return self._get('breeds/list/all')
+
+    def get_breed_images(self, breed: str) -> list[str]:
+        """Return list of all image URLs for a specified breed name."""
+        return self._get(f'breed/{breed}/images')
+
+    def get_subbreed_images(self, breed: str, subbreed: str) -> list[str]:
+        """Return list of all image URLs for a specified breed name."""
+        return self._get(f'breed/{breed}/{subbreed}/images')
+
+    def _get(self, endpoint: str):
+        """Internal helper to perform a GET request to an API `endpoint`.
+
+        Args:
+            endpoint (str): The path relative to the API root URL.
+
+        Returns:
+            Any: The `message` field extracted from the JSON response body.
+        """
+        uri = f'{self._api_root}/{endpoint}'
+        response = requests.get(uri)
         response.raise_for_status()
-        result_root = response.json()
-        return result_root['message']
+        root_json = response.json()
+        return root_json['message']

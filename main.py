@@ -19,10 +19,13 @@ from yandex_disk_api import YandexDiskApi
 
 
 # Default values for optional environment variables
+# See .env.example file for variable description.
 JSON_REPORT_PATH_DEFAULT = 'report.json'
 CLEAN_DEFAULT = ''
 OVERWRITE_DEFAULT = ''
 YD_ROOT_DIR_DEFAULT = 'disk:/dog_pictures'
+MAX_BREED_IMAGE_COUNT_DEFAULT = 10
+MAX_SUB_BREED_IMAGE_COUNT_DEFAULT = 1
 
 
 class JsonReport:
@@ -69,17 +72,39 @@ def get_required_env_variable(name: str) -> str:
     return os.environ[name]
 
 
-def get_optional_env_variable(var_name: str, default: str) -> str:
+def get_optional_env_variable(name: str, default: str) -> str:
     """Get the value of an environment variable or use a default value.
 
     Args:
-        var_name (str): Environment variable name whose value to extract.
+        name (str): Environment variable name whose value to extract.
         default (str): Default value to use if the variable is absent.
 
     Returns:
         str: The value of the environment variable or the default value.
     """
-    return os.environ.get(var_name, default)
+    return os.environ.get(name, default)
+
+
+def get_optional_env_variable_int(name: str, default: int) -> int:
+    """Get the value of an integer environment variable or use
+    a default value. The variable must contain a decimal integer value.
+
+    Args:
+        name (str): Environment variable name whose value to extract.
+        default (int): Default value to use if the variable is absent.
+
+    Returns:
+        int: The value of the environment variable or the default value.
+    """
+    value = os.environ.get(name, default)
+    try:
+        return int(value)
+    except ValueError:
+        sys.stderr.write(f'WARNING: Environment variable "{name}" must '
+                         f'contain a decimal integer value but "{value}" '
+                         f'is passed. Please set the environment variable '
+                         f'"{name}" to a correct value and try again.')
+        return default
 
 
 class Application:
@@ -110,6 +135,14 @@ class Application:
         self.root_dir = get_optional_env_variable(
             'YD_ROOT_DIR',
             YD_ROOT_DIR_DEFAULT
+        )
+        self.max_breed_images = get_optional_env_variable_int(
+            'MAX_BREED_IMAGE_COUNT',
+            MAX_BREED_IMAGE_COUNT_DEFAULT
+        )
+        self.max_sub_breed_images = get_optional_env_variable_int(
+            'MAX_SUB_BREED_IMAGE_COUNT',
+            MAX_SUB_BREED_IMAGE_COUNT_DEFAULT
         )
 
         self.report = JsonReport()
@@ -159,31 +192,39 @@ class Application:
         DESC_WIDTH = 17
         with tqdm() as total_progress, tqdm() as breed_progress:
             # Progress over all breeds (total program progress)
-            total_progress.set_description_str(f'{'Total':{DESC_WIDTH}}')
+            total_progress.set_description(f'{'Total':{DESC_WIDTH}}')
             total_progress.reset(len(breeds))
 
             # Process all breeds
             for breed, sub_breeds in breeds.items():
                 self.yd_api.create_directory(f'{self.root_dir}/{breed}')
-                images = self.dog_api.get_breed_images(breed)
 
                 # Progress over current breed
                 breed_progress.set_description(f'{breed:{DESC_WIDTH}}')
-                breed_progress.reset(len(images))
 
                 if sub_breeds:
                     # Process all breed sub-breeds
+                    limit = self.max_sub_breed_images * len(sub_breeds)
+                    breed_progress.reset(limit)
                     for sub_breed in sub_breeds:
-                        images = self.dog_api.get_sub_breed_images(
+                        images = self.dog_api.get_sub_breed_random_images(
                             breed,
-                            sub_breed
+                            sub_breed,
+                            self.max_sub_breed_images
                         )
-                        # Process all sub-breed images
+                        # Process sub-breed images
                         for image in images:
                             self.process_image(image, breed, sub_breed)
                             breed_progress.update(1)
                 else:
-                    # No sub-breed, process all breed images
+                    # No sub-breed, upload images just for the breed
+                    images = self.dog_api.get_breed_random_images(
+                        breed,
+                        self.max_breed_images
+                    )
+                    breed_progress.reset(len(images))
+
+                    # Process breed images
                     for image in images:
                         self.process_image(image, breed)
                         breed_progress.update(1)

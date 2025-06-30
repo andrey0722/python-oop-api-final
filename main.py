@@ -12,9 +12,11 @@ is formed and saved in JSON format to the working directory.
 import json
 import os
 import sys
-from dog_ceo_api import DogCeoApi
+
 from dotenv import load_dotenv
 from tqdm import tqdm
+
+from dog_ceo_api import DogCeoApi
 from yandex_disk_api import YandexDiskApi
 
 
@@ -189,10 +191,10 @@ class Application:
 
         breeds = self.dog_api.get_all_breeds_sub_breeds()
 
-        DESC_WIDTH = 17
+        desc_width = 17
         with tqdm() as total_progress, tqdm() as breed_progress:
             # Progress over all breeds (total program progress)
-            total_progress.set_description(f'{'Total':{DESC_WIDTH}}')
+            total_progress.set_description(f'{'Total':{desc_width}}')
             total_progress.reset(len(breeds))
 
             # Process all breeds
@@ -200,7 +202,7 @@ class Application:
                 self.yd_api.create_directory(f'{self.root_dir}/{breed}')
 
                 # Progress over current breed
-                breed_progress.set_description(f'{breed:{DESC_WIDTH}}')
+                breed_progress.set_description(f'{breed:{desc_width}}')
 
                 if sub_breeds:
                     # Process all breed sub-breeds

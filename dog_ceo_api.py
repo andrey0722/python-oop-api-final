@@ -7,21 +7,21 @@ is available at https://dog.ceo/dog-api/documentation/.
 """
 
 
-import requests
+from web_api import BasicWebApi
 
 
-class DogCeoApi:
+class DogCeoApi(BasicWebApi):
     """A class which instance communicates with the dog API."""
 
     API_ROOT_DEFAULT = 'https://dog.ceo/api'
 
-    def __init__(self, *, api_root: str = API_ROOT_DEFAULT) -> None:
+    def __init__(self, *, api_root: str = API_ROOT_DEFAULT):
         """Initialize a dog API instance.
 
         Args:
             api_root (str): Optional override for the API root URL.
         """
-        self._api_root = api_root
+        super().__init__(api_root=api_root)
 
     def get_all_breeds_sub_breeds(self) -> dict[str, list[str]]:
         """Return a dictionary with all available dog breeds with their
@@ -96,8 +96,6 @@ class DogCeoApi:
         Returns:
             Any: The `message` field extracted from the JSON response body.
         """
-        uri = f'{self._api_root}/{endpoint}'
-        response = requests.get(uri)
-        response.raise_for_status()
+        response = self._request('GET', endpoint)
         root_json = response.json()
         return root_json['message']

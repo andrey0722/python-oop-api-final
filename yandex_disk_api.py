@@ -151,7 +151,7 @@ class YandexDiskApi:
         params = {
             'path': item_path,
         }
-        response = requests.delete(url, headers=headers, params=params)
+        response = requests.get(url, headers=headers, params=params)
         self._raise_error(response, 404, True)  # Suppress error 404
         return response.status_code != 404
 

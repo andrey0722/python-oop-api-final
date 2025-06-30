@@ -14,6 +14,7 @@ import os
 import sys
 from dog_ceo_api import DogCeoApi
 from dotenv import load_dotenv
+from tqdm import tqdm
 from yandex_disk_api import YandexDiskApi
 
 
@@ -114,6 +115,7 @@ class Application:
         self.report = JsonReport()
         self.dog_api = DogCeoApi()
         self.yd_api = YandexDiskApi(self.yd_key)
+        # self.yd_api = YandexDiskApiDummy(self.yd_key)
 
     def process_image(self, image: str, breed: str, sub_breed: str = ''):
         """Upload an image to YD cloud storage and add to report.
@@ -153,17 +155,39 @@ class Application:
         self.yd_api.create_directory(self.root_dir)
 
         breeds = self.dog_api.get_all_breeds_sub_breeds()
-        for breed, sub_breeds in breeds.items():
-            print(f'{breed=}')
-            self.yd_api.create_directory(f'{self.root_dir}/{breed}')
-            if sub_breeds:
-                for sub_breed in sub_breeds:
-                    images = self.dog_api.get_sub_breed_images(breed, sub_breed)
+
+        DESC_WIDTH = 17
+        with tqdm() as total_progress, tqdm() as breed_progress:
+            # Progress over all breeds (total program progress)
+            total_progress.set_description_str(f'{'Total':{DESC_WIDTH}}')
+            total_progress.reset(len(breeds))
+
+            # Process all breeds
+            for breed, sub_breeds in breeds.items():
+                self.yd_api.create_directory(f'{self.root_dir}/{breed}')
+                images = self.dog_api.get_breed_images(breed)
+
+                # Progress over current breed
+                breed_progress.set_description(f'{breed:{DESC_WIDTH}}')
+                breed_progress.reset(len(images))
+
+                if sub_breeds:
+                    # Process all breed sub-breeds
+                    for sub_breed in sub_breeds:
+                        images = self.dog_api.get_sub_breed_images(
+                            breed,
+                            sub_breed
+                        )
+                        # Process all sub-breed images
+                        for image in images:
+                            self.process_image(image, breed, sub_breed)
+                            breed_progress.update(1)
+                else:
+                    # No sub-breed, process all breed images
                     for image in images:
-                        self.process_image(image, breed, sub_breed)
-            else:
-                for image in self.dog_api.get_breed_images(breed):
-                    self.process_image(image, breed)
+                        self.process_image(image, breed)
+                        breed_progress.update(1)
+                total_progress.update(1)
 
         self.report.save(self.report_path)
 

@@ -1,6 +1,8 @@
 certifi
+colorama
 charset-normalizer
 idna
 python-dotenv
 requests
+tqdm
 urllib3

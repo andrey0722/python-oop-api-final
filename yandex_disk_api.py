@@ -7,7 +7,7 @@ The API documentation is available at https://yandex.ru/dev/disk-api/doc/ru/.
 
 import requests
 import time
-from typing import Iterable
+from typing import Iterable, override
 
 
 class YandexDiskApi:
@@ -251,3 +251,42 @@ class YandexDiskApi:
         while self.requests_per_second >= self._limit_per_second:
             # Ensure we don't violate per-second limit
             time.sleep(sleep_period)
+
+
+class YandexDiskApiDummy(YandexDiskApi):
+    """A dummy for testing purposes."""
+
+    DUMMY_DELAY = 0.02
+
+    @property
+    def requests_per_second(self) -> int:
+        time.sleep(type(self).DUMMY_DELAY)
+        return 0
+
+    @override
+    def create_directory(
+        self,
+        dir_path: str,
+        *,
+        ignore_existing: bool = True
+    ):
+        time.sleep(type(self).DUMMY_DELAY)
+
+    @override
+    def delete_item(
+        self,
+        item_path: str,
+        *,
+        permanently: bool = True,
+        ignore_non_existent: bool = True
+    ):
+        time.sleep(type(self).DUMMY_DELAY)
+
+    @override
+    def upload_file_from_url(self, file_path: str, upload_url: str):
+        time.sleep(type(self).DUMMY_DELAY)
+
+    @override
+    def check_item_exists(self, item_path: str) -> bool:
+        time.sleep(type(self).DUMMY_DELAY)
+        return False

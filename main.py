@@ -41,19 +41,19 @@ def extract_file_name(uri: str):
 
 
 def main():
-    """Get image URIs of all breeds and subbreeds. Save all image
+    """Get image URIs of all breeds and sub-breeds. Save all image
     file names in a JSON report.
     """
     report = Report()
     dog_api = DogCeoApi()
-    breeds = dog_api.get_all_breeds_subbreeds()
-    for breed, subbreeds in breeds.items():
+    breeds = dog_api.get_all_breeds_sub_breeds()
+    for breed, sub_breeds in breeds.items():
         print(f'{breed=}')
-        if subbreeds:
-            for subbreed in subbreeds:
-                for image in dog_api.get_subbreed_images(breed, subbreed):
+        if sub_breeds:
+            for sub_breed in sub_breeds:
+                for image in dog_api.get_sub_breed_images(breed, sub_breed):
                     image_name = extract_file_name(image)
-                    file_name = f'{breed}_{subbreed}_{image_name}'
+                    file_name = f'{breed}_{sub_breed}_{image_name}'
                     report.append(file_name)
         else:
             for image in dog_api.get_breed_images(breed):

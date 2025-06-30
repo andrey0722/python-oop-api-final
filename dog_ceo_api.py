@@ -23,9 +23,9 @@ class DogCeoApi:
         """
         self._api_root = api_root
 
-    def get_all_breeds_subbreeds(self) -> dict[str, list[str]]:
+    def get_all_breeds_sub_breeds(self) -> dict[str, list[str]]:
         """Return a dictionary with all available dog breeds with their
-        respective subbreeds (if any).
+        respective sub-breeds (if any).
         """
         return self._get('breeds/list/all')
 
@@ -33,9 +33,9 @@ class DogCeoApi:
         """Return list of all image URLs for a specified breed name."""
         return self._get(f'breed/{breed}/images')
 
-    def get_subbreed_images(self, breed: str, subbreed: str) -> list[str]:
-        """Return list of all image URLs for a specified breed name."""
-        return self._get(f'breed/{breed}/{subbreed}/images')
+    def get_sub_breed_images(self, breed: str, sub_breed: str) -> list[str]:
+        """Return list of all image URLs for a specified sub-breed name."""
+        return self._get(f'breed/{breed}/{sub_breed}/images')
 
     def _get(self, endpoint: str):
         """Internal helper to perform a GET request to an API `endpoint`.

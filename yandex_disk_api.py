@@ -5,6 +5,7 @@ The API documentation is available at https://yandex.ru/dev/disk-api/doc/ru/.
 """
 
 
+import requests
 import time
 from typing import Iterable
 
@@ -53,6 +54,136 @@ class YandexDiskApi:
         """A number of requests performed during last second."""
         self._clear_expired_requests()
         return self._count_history(1)
+
+    def create_directory(
+        self,
+        dir_path: str,
+        *,
+        ignore_existing: bool = True
+    ):
+        """Create a directory in YD cloud storage.
+
+        Args:
+            dir_path (str): A valid YD path of the directory to create.
+            ignore_existing (bool): If True, ignore the error in the case
+                when the directory already exists.
+
+        Raises:
+            HTTPError: an error occured while accessing YD server.
+        """
+        self._wait_for_api_limits()
+        self._register_request()
+        url = f'{self._api_root}/disk/resources'
+        headers = self._get_common_headers()
+        params = {
+            'path': dir_path,
+        }
+        response = requests.put(url, headers=headers, params=params)
+        self._raise_error(response, 409, ignore_existing)
+
+    def delete_item(
+        self,
+        item_path: str,
+        *,
+        permanently: bool = True,
+        ignore_non_existent: bool = True
+    ):
+        """Delete a file or directory from YD cloud storage.
+
+        Args:
+            item_path (str): A valid YD path of the item to delete.
+            permanently (bool): If False, move the item to Recycle Bin.
+                If True, delete the item permanently from YD storage.
+            ignore_non_existent (bool): If True, ignore the error in
+                the case when the item don't exist.
+
+        Raises:
+            HTTPError: an error occured while accessing YD server.
+        """
+        self._wait_for_api_limits()
+        self._register_request()
+        url = f'{self._api_root}/disk/resources'
+        headers = self._get_common_headers()
+        params = {
+            'path': item_path,
+            'permanently': permanently,
+        }
+        response = requests.delete(url, headers=headers, params=params)
+        self._raise_error(response, 404, ignore_non_existent)
+
+    def upload_file_from_url(self, file_path: str, upload_url: str):
+        """Create a file in YD storage and fill it with data from URL.
+
+        Does not access the URL locally, YD directly uploads it, so
+        no extra overheads are added.
+
+        Args:
+            file_path (str): A valid YD path of the file to upload to.
+            upload_url (str): An URL to upload the data from.
+
+        Raises:
+            HTTPError: an error occured while accessing YD server.
+        """
+        self._wait_for_api_limits()
+        self._register_request()
+        url = f'{self._api_root}/disk/resources/upload'
+        headers = self._get_common_headers()
+        params = {
+            'url': upload_url,
+            'path': file_path,
+        }
+        response = requests.post(url, headers=headers, params=params)
+        self._raise_error(response)
+
+    def check_item_exists(self, item_path: str) -> bool:
+        """Check whether an item exists in YD cloud storage.
+
+        Args:
+            item_path (str): A valid YD path of the item to check.
+
+        Raises:
+            HTTPError: an error occured while accessing YD server.
+        """
+        self._wait_for_api_limits()
+        self._register_request()
+        url = f'{self._api_root}/disk/resources'
+        headers = self._get_common_headers()
+        params = {
+            'path': item_path,
+        }
+        response = requests.delete(url, headers=headers, params=params)
+        self._raise_error(response, 404, True)  # Suppress error 404
+        return response.status_code != 404
+
+    def _get_common_headers(self) -> dict[str, str]:
+        """Internal helper to construct common headers for HTTP requests."""
+        return {
+            'Authorization': f'OAuth {self._oauth_key}',
+            'Accept': 'application/json',
+        }
+
+    def _raise_error(
+        self,
+        response: requests.Response,
+        suppress_code: int = 0,
+        suppress_flag: bool = False
+    ):
+        """Internal helper to raise an error from HTTP response with
+        an option to suppress it.
+
+        Args:
+            response (requests.Response): The response from HTTP request.
+            suppress_code (int): A suppressable HTTP status code. If
+                the actual status code doesn't match, then the code
+                is not suppressed.
+            suppress_flag (bool): If True, then suppress the error with
+                status code `suppress_code`.
+
+        Raises:
+            HTTPError: an error occured while accessing YD server.
+        """
+        if response.status_code != suppress_code or not suppress_flag:
+            response.raise_for_status()
 
     def _register_request(self):
         """Internal helper to register a new request in request history."""

@@ -17,6 +17,10 @@ class BasicWebApi:
     REQUEST_HISTORY_EXPIRE_DEFAULT = 2.0
     RATE_LIMIT_SLEEP_DEFAULT = 0.1
 
+    # Recommended by Requests docs:
+    # https://requests.readthedocs.io/en/latest/user/advanced/#timeouts
+    REQUEST_TIMEOUT_DEFAULT = (3.05, 27.0)
+
     def __init__(
         self,
         api_root: str,
@@ -24,7 +28,8 @@ class BasicWebApi:
         oauth_key: str | None = None,
         limit_per_second: int | None = None,
         rate_limit_sleep: float = RATE_LIMIT_SLEEP_DEFAULT,
-        request_history_expire: float = REQUEST_HISTORY_EXPIRE_DEFAULT
+        request_history_expire: float = REQUEST_HISTORY_EXPIRE_DEFAULT,
+        request_timeout: float | tuple[float, float] = REQUEST_TIMEOUT_DEFAULT
     ):
         """Initialize an API instance.
 
@@ -48,6 +53,7 @@ class BasicWebApi:
         self._limit_per_second = limit_per_second
         self._rate_limit_sleep = rate_limit_sleep
         self._request_history_expire = request_history_expire
+        self._request_timeout = request_timeout
         self._request_history: list[float] = []
 
     @property
@@ -98,7 +104,8 @@ class BasicWebApi:
             method=method,
             url=url,
             params=params,
-            headers=headers
+            headers=headers,
+            timeout=self._request_timeout
         )
         self._raise_error(response, suppress)
         return response

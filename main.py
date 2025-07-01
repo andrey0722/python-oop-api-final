@@ -185,54 +185,55 @@ class Application:
         2. Upload all pictures to YD cloud storage with grouping by breed.
         3. Create a report with uploaded image file names in JSON format.
         """
-        if self.clean:
-            self.yd_api.delete_item(self.root_dir)
-        self.yd_api.create_directory(self.root_dir)
+        try:
+            if self.clean:
+                self.yd_api.delete_item(self.root_dir)
+            self.yd_api.create_directory(self.root_dir)
 
-        breeds = self.dog_api.get_all_breeds_sub_breeds()
+            breeds = self.dog_api.get_all_breeds_sub_breeds()
 
-        desc_width = 17
-        with tqdm() as total_progress, tqdm() as breed_progress:
-            # Progress over all breeds (total program progress)
-            total_progress.set_description(f'{'Total':{desc_width}}')
-            total_progress.reset(len(breeds))
+            desc_width = 17
+            with tqdm() as total_progress, tqdm() as breed_progress:
+                # Progress over all breeds (total program progress)
+                total_progress.set_description(f'{'Total':{desc_width}}')
+                total_progress.reset(len(breeds))
 
-            # Process all breeds
-            for breed, sub_breeds in breeds.items():
-                self.yd_api.create_directory(f'{self.root_dir}/{breed}')
+                # Process all breeds
+                for breed, sub_breeds in breeds.items():
+                    self.yd_api.create_directory(f'{self.root_dir}/{breed}')
 
-                # Progress over current breed
-                breed_progress.set_description(f'{breed:{desc_width}}')
+                    # Progress over current breed
+                    breed_progress.set_description(f'{breed:{desc_width}}')
 
-                if sub_breeds:
-                    # Process all breed sub-breeds
-                    limit = self.max_sub_breed_images * len(sub_breeds)
-                    breed_progress.reset(limit)
-                    for sub_breed in sub_breeds:
-                        images = self.dog_api.get_sub_breed_random_images(
+                    if sub_breeds:
+                        # Process all breed sub-breeds
+                        limit = self.max_sub_breed_images * len(sub_breeds)
+                        breed_progress.reset(limit)
+                        for sub_breed in sub_breeds:
+                            images = self.dog_api.get_sub_breed_random_images(
+                                breed,
+                                sub_breed,
+                                self.max_sub_breed_images
+                            )
+                            # Process sub-breed images
+                            for image in images:
+                                self.process_image(image, breed, sub_breed)
+                                breed_progress.update(1)
+                    else:
+                        # No sub-breed, upload images just for the breed
+                        images = self.dog_api.get_breed_random_images(
                             breed,
-                            sub_breed,
-                            self.max_sub_breed_images
+                            self.max_breed_images
                         )
-                        # Process sub-breed images
+                        breed_progress.reset(len(images))
+
+                        # Process breed images
                         for image in images:
-                            self.process_image(image, breed, sub_breed)
+                            self.process_image(image, breed)
                             breed_progress.update(1)
-                else:
-                    # No sub-breed, upload images just for the breed
-                    images = self.dog_api.get_breed_random_images(
-                        breed,
-                        self.max_breed_images
-                    )
-                    breed_progress.reset(len(images))
-
-                    # Process breed images
-                    for image in images:
-                        self.process_image(image, breed)
-                        breed_progress.update(1)
-                total_progress.update(1)
-
-        self.report.save(self.report_path)
+                    total_progress.update(1)
+        finally:
+            self.report.save(self.report_path)
 
 
 if __name__ == '__main__':

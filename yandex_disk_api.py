@@ -61,9 +61,7 @@ class YandexDiskApi(BasicWebApi):
         params = {
             'path': dir_path,
         }
-        suppress = {
-            409: ignore_existing,
-        }
+        suppress = {409} if ignore_existing else None
         self._request(
             'PUT',
             'disk/resources',
@@ -94,9 +92,7 @@ class YandexDiskApi(BasicWebApi):
             'path': item_path,
             'permanently': permanently,
         }
-        suppress = {
-            404: ignore_non_existent,
-        }
+        suppress = {404} if ignore_non_existent else None
         self._request(
             'DELETE',
             'disk/resources',
@@ -139,9 +135,7 @@ class YandexDiskApi(BasicWebApi):
         params = {
             'path': item_path,
         }
-        suppress = {
-            404: True,  # We explicitly check for error 404
-        }
+        suppress = {404}  # We explicitly check for error 404
         response = self._request(
             'GET',
             'disk/resources',

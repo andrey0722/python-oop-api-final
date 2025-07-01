@@ -15,13 +15,17 @@ class DogCeoApi(BasicWebApi):
 
     API_ROOT_DEFAULT = 'https://dog.ceo/api'
 
+    # This API sometimes take a long time to respond
+    REQUEST_TIMEOUT = (21.05, 40.0)
+
     def __init__(self, *, api_root: str = API_ROOT_DEFAULT):
         """Initialize a dog API instance.
 
         Args:
             api_root (str): Optional override for the API root URL.
         """
-        super().__init__(api_root=api_root)
+        request_timeout = type(self).REQUEST_TIMEOUT
+        super().__init__(api_root=api_root, request_timeout=request_timeout)
 
     def get_all_breeds_sub_breeds(self) -> dict[str, list[str]]:
         """Return a dictionary with all available dog breeds with their

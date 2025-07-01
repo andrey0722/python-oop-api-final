@@ -156,6 +156,19 @@ class Application:
         self.dog_api = DogCeoApi()
         self.yd_api = self.create_yd_api()
 
+    def __enter__(self):
+        """Do nothing."""
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        """Close all API connections."""
+        self.close()
+
+    def close(self):
+        """Close all API connections."""
+        self.dog_api.close()
+        self.yd_api.close()
+
     def create_yd_api(self, test: bool = False) -> YandexDiskApi:
         """Create and return YD API instance.
 
@@ -254,5 +267,5 @@ class Application:
 
 
 if __name__ == '__main__':
-    app = Application()
-    app.main()
+    with Application() as app:
+        app.main()

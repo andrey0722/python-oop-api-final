@@ -55,12 +55,25 @@ class BasicWebApi:
         self._request_history_expire = request_history_expire
         self._request_timeout = request_timeout
         self._request_history: list[float] = []
+        self._session = requests.Session()
+
+    def __enter__(self):
+        """Do nothing."""
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        """Close the session."""
+        self.close()
 
     @property
     def requests_per_second(self) -> int:
         """A number of requests performed during last second."""
         self._clear_expired_requests()
         return self._count_history(1)
+
+    def close(self):
+        """Close the session."""
+        self._session.close()
 
     def _request(
         self,
@@ -101,7 +114,7 @@ class BasicWebApi:
 
         # Perform the request
         self._register_request()
-        response = requests.request(
+        response = self._session.request(
             method=method,
             url=url,
             params=params,

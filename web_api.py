@@ -3,7 +3,7 @@ Web APIs using HTTP requests.
 """
 
 import time
-from typing import Any, Container, Iterable
+from typing import Any, Iterable, Set
 
 import requests
 
@@ -69,7 +69,7 @@ class BasicWebApi:
         *,
         params: dict[str, Any] | None = None,
         headers: dict[str, Any] | None = None,
-        suppress: Container[int] | None = None
+        suppress: Set[int] | None = None
     ) -> requests.Response:
         """Perform an HTTP request to API endpoint with parameters.
 
@@ -84,7 +84,7 @@ class BasicWebApi:
                 must be encoded inside request URL.
             headers (dict[str, Any] | None): Additional HTTP headers
                 to use in the request.
-            suppress (Container[int] | None): Optional parameter
+            suppress (Set[int] | None): Optional parameter
                 to suppress errors with specific HTTP status codes.
                 If the status code is contained in `suppress` then
                 this error must be suppressed. None means no
@@ -138,17 +138,15 @@ class BasicWebApi:
     def _raise_error(
         self,
         response: requests.Response,
-        suppress: Container[int] | None = None
+        suppress: Set[int] | None = None
     ):
         """Internal helper to raise an error from HTTP response with
         an option to suppress it.
 
         Args:
             response (requests.Response): The response from HTTP request.
-            suppress (dict[int, bool] | None): A dictionary containing
-                HTTP status code with its suppress flag as value. If this
-                flag is True, then the error with this status code must
-                be suppressed.
+            suppress (Set[int] | None): A set containing HTTP status
+                codes to suppress. None means no suppress setting.
 
         Raises:
             HTTPError: an error occurred during HTTP request.

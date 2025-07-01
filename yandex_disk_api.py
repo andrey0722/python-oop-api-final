@@ -6,7 +6,9 @@ The API documentation is available at https://yandex.ru/dev/disk-api/doc/ru/.
 
 
 import time
-from typing import override
+from typing import Any, Set, override
+
+import requests
 
 from web_api import BasicWebApi
 
@@ -19,6 +21,13 @@ class YandexDiskApi(BasicWebApi):
     # Clause 2.2 of the Yandex.Disk API terms of use:
     # https://yandex.ru/legal/disk_api/ru/#2-usloviya-ispolzovaniya-servisa
     MAX_REQUESTS_PER_SECOND = 40
+
+    # Sometimes YD storage temporarily locks a resource after an operation.
+    # In this case YD API returns error 423 on resource modification attempt.
+    # This parameter specifies maximum number of tries to unlock the
+    # resource before giving up.
+    MAX_UNLOCK_RETRIES = 20
+    UNLOCK_DELAY = 0.2
 
     def __init__(
         self,
@@ -143,6 +152,53 @@ class YandexDiskApi(BasicWebApi):
             suppress=suppress
         )
         return response.status_code != 404
+
+    @override
+    def _request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        suppress: Set[int] | None = None
+    ) -> requests.Response:
+        unlock_suppress = set()
+        if suppress is not None:
+            unlock_suppress.update(suppress)
+        unlock_suppress.add(423)  # Manually handle error 423
+
+        response = super()._request(
+            method=method,
+            endpoint=endpoint,
+            params=params,
+            headers=headers,
+            suppress=unlock_suppress
+        )
+        if response.status_code != 423:
+            return response
+
+        max_retries = max(type(self).MAX_UNLOCK_RETRIES, 1)
+        unlock_delay = type(self).UNLOCK_DELAY
+
+        # Repeat request until the resource is unlocked
+        for _ in range(max_retries):
+            # Wait between retries
+            time.sleep(unlock_delay)
+            response = super()._request(
+                method=method,
+                endpoint=endpoint,
+                params=params,
+                headers=headers,
+                suppress=unlock_suppress
+            )
+            if response.status_code != 423:
+                return response
+
+        # Still locked, giving up. Using user-supplied suppress setting
+        # because the user could suppress error 423 beforehand.
+        self._raise_error(response, suppress)
+        return response
 
 
 class YandexDiskApiDummy(YandexDiskApi):

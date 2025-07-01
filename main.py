@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 from dog_ceo_api import DogCeoApi
+from web_api import extract_base_name
 from yandex_disk_api import YandexDiskApi, YandexDiskApiDummy
 
 
@@ -46,13 +47,6 @@ class JsonReport:
         """Save program result object as pretty-printed JSON to a file."""
         with open(file_path, 'w', encoding=encoding) as f:
             json.dump(self._result, f, indent=4)
-
-
-def extract_file_name(uri: str):
-    """Extract a base file name from a specified `uri`."""
-    uri = uri.split('?')[0]    # Strip possible ?query component
-    uri = uri.split('#')[0]    # Strip possible #fragment component
-    return uri.split('/')[-1]  # Extract the last component in URI path
 
 
 def get_required_env_variable(name: str) -> str:
@@ -188,7 +182,7 @@ class Application:
             breed (str): Dog breed.
             sub_breed (str): Dog sub-breed.
         """
-        image_name = extract_file_name(image)
+        image_name = extract_base_name(image)
         if sub_breed:
             file_name = f'{breed}_{sub_breed}_{image_name}'
         else:

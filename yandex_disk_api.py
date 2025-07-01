@@ -10,7 +10,7 @@ from typing import Any, Set, override
 
 import requests
 
-from web_api import BasicWebApi
+from web_api import BasicWebApi, extract_base_name
 
 
 class YandexDiskApi(BasicWebApi):
@@ -28,6 +28,10 @@ class YandexDiskApi(BasicWebApi):
     # resource before giving up.
     MAX_UNLOCK_ATTEMPTS = 20
     UNLOCK_DELAY = 0.2
+
+    # How many seconds to sleep between consequent requests while waiting
+    # for async operation to complete.
+    WAIT_FOR_OPERATION_SLEEP = 0.2
 
     def __init__(
         self,
@@ -100,14 +104,20 @@ class YandexDiskApi(BasicWebApi):
         params = {
             'path': item_path,
             'permanently': permanently,
+            'force_async': False,  # Try to do it synchronously
         }
         suppress = {404} if ignore_non_existent else None
-        self._request(
+        response = self._request(
             'DELETE',
             'disk/resources',
             params=params,
             suppress=suppress
         )
+        if response.status_code == 202:
+            # YD performs async delete
+            operation: dict[str, Any] = response.json()
+            operation_id = extract_base_name(operation['href'])
+            self.wait_for_operation(operation_id)
 
     def upload_file_from_url(self, file_path: str, upload_url: str):
         """Create a file in YD storage and fill it with data from URL.
@@ -153,6 +163,39 @@ class YandexDiskApi(BasicWebApi):
             suppress=suppress
         )
         return response.status_code != 404
+
+    def get_operation_status(self, operation_id: str) -> str:
+        """Returns status of an async operation.
+
+        Args:
+            operation_id (str): Async operation ID.
+
+        Raises:
+            HTTPError: an error occurred while accessing YD server.
+        """
+        params = {
+            'id': operation_id,
+        }
+        response = self._request(
+            'GET',
+            'disk/operations',
+            params=params
+        )
+        return response.json()['status']
+
+    def wait_for_operation(self, operation_id: str):
+        """Wait until an async operation completes successfully.
+
+        Args:
+            operation_id (str): Async operation ID.
+
+        Raises:
+            HTTPError: an error occurred while accessing YD server.
+        """
+        status = self.get_operation_status(operation_id)
+        while status != 'success':
+            time.sleep(type(self).WAIT_FOR_OPERATION_SLEEP)
+            status = self.get_operation_status(operation_id)
 
     @override
     def _request(

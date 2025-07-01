@@ -8,6 +8,13 @@ from typing import Any, Iterable, Set
 import requests
 
 
+def extract_base_name(uri: str):
+    """Extract a base file name from a specified `uri`."""
+    uri = uri.split('?')[0]    # Strip possible ?query component
+    uri = uri.split('#')[0]    # Strip possible #fragment component
+    return uri.split('/')[-1]  # Extract the last component in URI path
+
+
 class BasicWebApi:
     """A class which instance communicates with Web API and keeps its
     request rate within limit.

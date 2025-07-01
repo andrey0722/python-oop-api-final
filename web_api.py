@@ -143,6 +143,8 @@ class BasicWebApi:
         """Internal helper to construct common headers for HTTP requests."""
         headers = {
             'Accept': 'application/json',
+            "Connection": "keep-alive",
+            "Keep-Alive": "timeout=60",
         }
         if self._oauth_key is not None:
             headers['Authorization'] = f'OAuth {self._oauth_key}'

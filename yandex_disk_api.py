@@ -143,6 +143,7 @@ class YandexDiskApi(BasicWebApi):
         """
         params = {
             'path': item_path,
+            'fields': 'name',
         }
         suppress = {404}  # We explicitly check for error 404
         response = self._request(

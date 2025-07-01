@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 
 from dog_ceo_api import DogCeoApi
-from yandex_disk_api import YandexDiskApi
+from yandex_disk_api import YandexDiskApi, YandexDiskApiDummy
 
 
 # Default values for optional environment variables
@@ -149,8 +149,18 @@ class Application:
 
         self.report = JsonReport()
         self.dog_api = DogCeoApi()
-        self.yd_api = YandexDiskApi(self.yd_key)
-        # self.yd_api = YandexDiskApiDummy(self.yd_key)
+        self.yd_api = self.create_yd_api()
+
+    def create_yd_api(self, test: bool = False) -> YandexDiskApi:
+        """Create and return YD API instance.
+
+        Args:
+            test (bool): If True create test implementation. If False
+                create real implementation
+        """
+        if test:
+            return YandexDiskApiDummy(self.yd_key)
+        return YandexDiskApi(self.yd_key)
 
     def process_image(self, image: str, breed: str, sub_breed: str = ''):
         """Upload an image to YD cloud storage and add to report.

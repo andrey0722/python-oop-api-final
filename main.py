@@ -25,6 +25,7 @@ from yandex_disk_api import YandexDiskApi, YandexDiskApiDummy
 JSON_REPORT_PATH_DEFAULT = 'report.json'
 CLEAN_DEFAULT = ''
 OVERWRITE_DEFAULT = ''
+USE_RECYCLE_BIN_DEFAULT = 'Y'
 YD_ROOT_DIR_DEFAULT = 'disk:/dog_pictures'
 MAX_BREED_IMAGE_COUNT_DEFAULT = 10
 MAX_SUB_BREED_IMAGE_COUNT_DEFAULT = 1
@@ -134,6 +135,10 @@ class Application:
             'OVERWRITE',
             OVERWRITE_DEFAULT
         )
+        self.use_recycle_bin = get_optional_env_variable(
+            'USE_RECYCLE_BIN',
+            USE_RECYCLE_BIN_DEFAULT
+        )
         self.root_dir = get_optional_env_variable(
             'YD_ROOT_DIR',
             YD_ROOT_DIR_DEFAULT
@@ -181,7 +186,8 @@ class Application:
             # Avoid YD storage to become a trash.
             if self.overwrite:
                 # Recreate the file from scratch
-                self.yd_api.delete_item(file_path)
+                permanently = not self.use_recycle_bin
+                self.yd_api.delete_item(file_path, permanently=permanently)
             else:
                 # Skip current file
                 return
@@ -197,7 +203,8 @@ class Application:
         """
         try:
             if self.clean:
-                self.yd_api.delete_item(self.root_dir)
+                permanently = not self.use_recycle_bin
+                self.yd_api.delete_item(self.root_dir, permanently=permanently)
             self.yd_api.create_directory(self.root_dir)
 
             breeds = self.dog_api.get_all_breeds_sub_breeds()

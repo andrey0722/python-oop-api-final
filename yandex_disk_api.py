@@ -24,9 +24,9 @@ class YandexDiskApi(BasicWebApi):
 
     # Sometimes YD storage temporarily locks a resource after an operation.
     # In this case YD API returns error 423 on resource modification attempt.
-    # This parameter specifies maximum number of tries to unlock the
+    # This parameter specifies maximum number of attempts to unlock the
     # resource before giving up.
-    MAX_UNLOCK_RETRIES = 20
+    MAX_UNLOCK_ATTEMPTS = 20
     UNLOCK_DELAY = 0.2
 
     def __init__(
@@ -178,7 +178,7 @@ class YandexDiskApi(BasicWebApi):
         if response.status_code != 423:
             return response
 
-        max_retries = max(type(self).MAX_UNLOCK_RETRIES, 1)
+        max_retries = max(type(self).MAX_UNLOCK_ATTEMPTS, 1) - 1
         unlock_delay = type(self).UNLOCK_DELAY
 
         # Repeat request until the resource is unlocked

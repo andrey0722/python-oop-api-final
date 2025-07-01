@@ -152,9 +152,8 @@ class BasicWebApi:
         Raises:
             HTTPError: an error occurred during HTTP request.
         """
-        if suppress is not None:
-            if not suppress.get(response.status_code, False):
-                response.raise_for_status()
+        if suppress is None or not suppress.get(response.status_code, False):
+            response.raise_for_status()
 
     def _register_request(self):
         """Internal helper to register a new request in request history."""

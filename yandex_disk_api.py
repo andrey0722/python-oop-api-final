@@ -33,6 +33,9 @@ class YandexDiskApi(BasicWebApi):
     # for async operation to complete.
     WAIT_FOR_OPERATION_SLEEP = 0.2
 
+    # This API sometimes take a long time to respond
+    REQUEST_TIMEOUT = (21.05, 40.0)
+
     def __init__(
         self,
         oauth_key: str,
@@ -49,10 +52,12 @@ class YandexDiskApi(BasicWebApi):
             limit_per_second (int): Optional override for the API request
                 rate limit per second.
         """
+        request_timeout = type(self).REQUEST_TIMEOUT
         super().__init__(
             oauth_key=oauth_key,
             api_root=api_root,
-            limit_per_second=limit_per_second
+            limit_per_second=limit_per_second,
+            request_timeout=request_timeout
         )
 
     def create_directory(

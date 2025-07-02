@@ -2,6 +2,7 @@
 Web APIs using HTTP requests.
 """
 
+import json
 import time
 from typing import Any, Iterable, Set
 
@@ -174,7 +175,17 @@ class BasicWebApi:
             HTTPError: an error occurred during HTTP request.
         """
         if suppress is None or response.status_code not in suppress:
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except requests.HTTPError as e:
+                # Append the response JSON to the exception
+                message = json.dumps(
+                    response.json(),
+                    indent=4,
+                    ensure_ascii=False
+                )
+                e.add_note(message)
+                raise
 
     def _register_request(self):
         """Internal helper to register a new request in request history."""

@@ -336,7 +336,7 @@ class Application:
 
             breeds = self.dog_api.get_all_breeds_sub_breeds()
 
-            desc_width = 17
+            desc_width = 25
             with tqdm() as total_progress, BreedTqdm() as breed_progress:
                 # Progress over all breeds (total program progress)
                 total_progress.set_description(f'{'Total':{desc_width}}')
@@ -347,7 +347,6 @@ class Application:
                     self.yd_api.create_directory(f'{self.root_dir}/{breed}')
 
                     # Progress over current breed
-                    breed_progress.set_description(f'{breed:{desc_width}}')
                     breed_progress.reset_sub_breed(len(sub_breeds))
 
                     if sub_breeds:
@@ -358,6 +357,7 @@ class Application:
                                 sub_breed,
                                 self.max_sub_breed_images
                             )
+                            breed_progress.set_description(f'{f'{breed}-{sub_breed}':{desc_width}}')
                             breed_progress.reset_image(len(images))
                             # Process sub-breed images
                             for image in images:
@@ -370,6 +370,7 @@ class Application:
                             breed,
                             self.max_breed_images
                         )
+                        breed_progress.set_description(f'{breed:{desc_width}}')
                         breed_progress.reset_image(len(images))
 
                         # Process breed images

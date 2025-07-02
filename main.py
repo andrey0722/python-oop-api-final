@@ -175,6 +175,7 @@ class BreedTqdm(tqdm):
         self.image = 0
         if total_images is not None:
             self.total_images = total_images
+        self.initial = self._calc_n()
         self.reset(self._calc_total())
 
     def update_image(self, diff_image: int = 1):
@@ -197,6 +198,7 @@ class BreedTqdm(tqdm):
         self.sub_breed = 0
         if total_sub_breeds is not None:
             self.total_sub_breeds = total_sub_breeds
+        self.initial = self._calc_n()
         self.reset(self._calc_total())
 
     def update_sub_breed(self, diff_sub_breed: int = 1):

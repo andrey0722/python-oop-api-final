@@ -30,6 +30,7 @@ USE_RECYCLE_BIN_DEFAULT = 'Y'
 YD_ROOT_DIR_DEFAULT = 'disk:/dog_pictures'
 MAX_BREED_IMAGE_COUNT_DEFAULT = 10
 MAX_SUB_BREED_IMAGE_COUNT_DEFAULT = 1
+YD_TEST_DUMMY_DEFAULT = ''
 
 
 class JsonReport:
@@ -261,10 +262,14 @@ class Application:
             'MAX_SUB_BREED_IMAGE_COUNT',
             MAX_SUB_BREED_IMAGE_COUNT_DEFAULT
         )
+        self.yd_test_dummy = get_optional_env_variable(
+            'YD_TEST_DUMMY',
+            YD_TEST_DUMMY_DEFAULT
+        )
 
         self.report = JsonReport()
         self.dog_api = DogCeoApi()
-        self.yd_api = self.create_yd_api()
+        self.yd_api = self.create_yd_api(bool(self.yd_test_dummy))
 
     def __enter__(self):
         """Do nothing."""

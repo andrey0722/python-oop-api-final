@@ -210,15 +210,13 @@ class BreedTqdm(tqdm):
     def _calc_n(self):
         """Internal helper to calculate current progress position."""
         if self.total_sub_breeds:
-            if self.total_images:
-                return self.sub_breed + self.image / self.total_images
-            return self.sub_breed
+            return self.sub_breed * self.total_images + self.image
         return self.image
 
     def _calc_total(self):
         """Internal helper to calculate progress total count."""
         if self.total_sub_breeds:
-            return self.total_sub_breeds
+            return self.total_sub_breeds * self.total_images
         return self.total_images
 
 
@@ -357,7 +355,9 @@ class Application:
                                 sub_breed,
                                 self.max_sub_breed_images
                             )
-                            breed_progress.set_description(f'{f'{breed}-{sub_breed}':{desc_width}}')
+                            breed_progress.set_description(
+                                f'{f'{breed}-{sub_breed}':{desc_width}}'
+                            )
                             breed_progress.reset_image(len(images))
                             # Process sub-breed images
                             for image in images:

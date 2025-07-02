@@ -188,16 +188,18 @@ class Application:
         else:
             file_name = f'{breed}_{image_name}'
         file_path = f'{self.root_dir}/{breed}/{file_name}'
-        if self.yd_api.check_item_exists(file_path):
+        if self.overwrite:
+            # Recreate the file from scratch regardless if it exists
+            permanently = not self.use_recycle_bin
+            self.yd_api.delete_item(
+                file_path,
+                permanently=permanently,
+                ignore_non_existent=True
+            )
+        elif self.yd_api.check_item_exists(file_path):
             # When the file exists YD duplicates it with a suffix.
-            # Avoid YD storage to become a trash.
-            if self.overwrite:
-                # Recreate the file from scratch
-                permanently = not self.use_recycle_bin
-                self.yd_api.delete_item(file_path, permanently=permanently)
-            else:
-                # Skip current file
-                return
+            # Avoid YD storage to become a trash - skip current file.
+            return
         self.yd_api.upload_file_from_url(file_path, image)
         self.report.append(file_name)
 

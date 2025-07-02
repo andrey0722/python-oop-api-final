@@ -104,6 +104,124 @@ def get_optional_env_variable_int(name: str, default: int) -> int:
         return default
 
 
+class BreedTqdm(tqdm):
+    """A class for progress tracking while processing single dog breed."""
+
+    def __init__(
+        self,
+        *args,
+        image: int = 0,
+        total_images: int = 0,
+        sub_breed: int = 0,
+        total_sub_breeds: int = 0,
+        **kwargs
+    ):
+        """Intialize a progress bar instance.
+
+        Args:
+            image (int): Current image index.
+            total_images (int): Total number of images.
+            sub_breed (int): Current sub-breed index.
+            total_sub_breeds (int): Total number of images.
+        """
+        # Define custom properties before superclass __init__
+        self.image = image
+        self.total_images = total_images
+        self.sub_breed = sub_breed
+        self.total_sub_breeds = total_sub_breeds
+
+        super().__init__(*args, **kwargs)
+
+        # Override progress bar format
+        # Replace the {n_fmt}/{total_fmt} part with custom format
+        self.bar_format = (
+            '{l_bar}{bar}| {breed_stats} '
+            '[{elapsed}<{remaining}, {rate_fmt}{postfix}]'
+        )
+
+    @property
+    def format_dict(self):
+        """Add custom properties for the progress formatter."""
+        d = super().format_dict
+
+        # Calculate current progress position
+        d['n'] = self._calc_n()
+        d['total'] = self._calc_total()
+
+        # Pre-format the breed stats
+        breed_stats = []
+        if self.total_sub_breeds:
+            # Don't track current sub-breed if they are absent
+            breed_stats.append(
+                f'{self.sub_breed}/{self.total_sub_breeds} sub-breeds'
+            )
+        # Track current image count
+        breed_stats.append(
+            f'{self.image}/{self.total_images} images'
+        )
+        d['breed_stats'] = ', '.join(breed_stats)
+
+        return d
+
+    def reset_image(self, total_images: int | None = None):
+        """Resets image position to 0 for repeated use.
+
+        Args:
+            total_images (int | None): Optional value to update
+                `total_images` property. If None, then `total_images`
+                remain unchanged.
+        """
+        self.image = 0
+        if total_images is not None:
+            self.total_images = total_images
+        self.reset(self._calc_total())
+
+    def update_image(self, diff_image: int = 1):
+        """Manually update the image progress.
+
+        Args:
+            diff_image (int): Current image position increment.
+        """
+        self.image += diff_image
+        self.update(0)
+
+    def reset_sub_breed(self, total_sub_breeds: int | None = None):
+        """Resets sub-breed position to 0 for repeated use.
+
+        Args:
+            total_sub_breeds (int | None): Optional value to update
+                `total_sub_breeds` property. If None, then
+                `total_sub_breeds` remain unchanged.
+        """
+        self.sub_breed = 0
+        if total_sub_breeds is not None:
+            self.total_sub_breeds = total_sub_breeds
+        self.reset(self._calc_total())
+
+    def update_sub_breed(self, diff_sub_breed: int = 1):
+        """Manually update the sub-breed progress.
+
+        Args:
+            diff_sub_breed (int): Current sub-breed position increment.
+        """
+        self.sub_breed += diff_sub_breed
+        self.update(0)
+
+    def _calc_n(self):
+        """Internal helper to calculate current progress position."""
+        if self.total_sub_breeds:
+            if self.total_images:
+                return self.sub_breed + self.image / self.total_images
+            return self.sub_breed
+        return self.image
+
+    def _calc_total(self):
+        """Internal helper to calculate progress total count."""
+        if self.total_sub_breeds:
+            return self.total_sub_breeds
+        return self.total_images
+
+
 class Application:
     """A class whose instance controls the flow of the main program."""
 
@@ -219,7 +337,7 @@ class Application:
             breeds = self.dog_api.get_all_breeds_sub_breeds()
 
             desc_width = 17
-            with tqdm() as total_progress, tqdm() as breed_progress:
+            with tqdm() as total_progress, BreedTqdm() as breed_progress:
                 # Progress over all breeds (total program progress)
                 total_progress.set_description(f'{'Total':{desc_width}}')
                 total_progress.reset(len(breeds))
@@ -230,34 +348,35 @@ class Application:
 
                     # Progress over current breed
                     breed_progress.set_description(f'{breed:{desc_width}}')
+                    breed_progress.reset_sub_breed(len(sub_breeds))
 
                     if sub_breeds:
                         # Process all breed sub-breeds
-                        limit = self.max_sub_breed_images * len(sub_breeds)
-                        breed_progress.reset(limit)
                         for sub_breed in sub_breeds:
                             images = self.dog_api.get_sub_breed_random_images(
                                 breed,
                                 sub_breed,
                                 self.max_sub_breed_images
                             )
+                            breed_progress.reset_image(len(images))
                             # Process sub-breed images
                             for image in images:
                                 self.process_image(image, breed, sub_breed)
-                                breed_progress.update(1)
+                                breed_progress.update_image()
+                            breed_progress.update_sub_breed()
                     else:
                         # No sub-breed, upload images just for the breed
                         images = self.dog_api.get_breed_random_images(
                             breed,
                             self.max_breed_images
                         )
-                        breed_progress.reset(len(images))
+                        breed_progress.reset_image(len(images))
 
                         # Process breed images
                         for image in images:
                             self.process_image(image, breed)
-                            breed_progress.update(1)
-                    total_progress.update(1)
+                            breed_progress.update_image()
+                    total_progress.update()
         finally:
             self.report.save(self.report_path)
 

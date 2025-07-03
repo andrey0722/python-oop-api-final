@@ -12,6 +12,8 @@ is formed and saved in JSON format to the working directory.
 import json
 import os
 import sys
+import threading
+import time
 
 from dotenv import load_dotenv
 from tqdm import tqdm
@@ -297,6 +299,29 @@ class Application:
             return YandexDiskApiDummy(self.yd_key)
         return YandexDiskApi(self.yd_key)
 
+    def delete_root_directory(self):
+        """Delete root directory with progress tracking."""
+
+        # This operation may take a long while
+        # if the root drectory is big, so use a thread
+        def thread_action():
+            """Delete root directory in a thread."""
+            permanently = not self.use_recycle_bin
+            self.yd_api.delete_item(self.root_dir, permanently=permanently)
+
+        # Track progress while the thread is running
+        progress = tqdm(
+            desc='Deleting root directory, this might take a while...',
+            unit=' seconds'
+        )
+        with progress:
+            thread = threading.Thread(target=thread_action)
+            thread.start()
+            while thread.is_alive():
+                progress.update()
+                time.sleep(1)
+            thread.join()
+
     def process_image(self, image: str, breed: str, sub_breed: str = ''):
         """Upload an image to YD cloud storage and add to report.
 
@@ -335,8 +360,7 @@ class Application:
         """
         try:
             if self.clean:
-                permanently = not self.use_recycle_bin
-                self.yd_api.delete_item(self.root_dir, permanently=permanently)
+                self.delete_root_directory()
             self.yd_api.create_directory(self.root_dir)
 
             breeds = self.dog_api.get_all_breeds_sub_breeds()

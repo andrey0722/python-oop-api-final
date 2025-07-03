@@ -10,29 +10,29 @@ is formed and saved in JSON format to the working directory.
 
 
 import json
-import os
-import sys
 import threading
 import time
 
-from dotenv import load_dotenv
 from tqdm import tqdm
 
+from params import Params
 from dog_ceo_api import DogCeoApi
 from web_api import extract_base_name
 from yandex_disk_api import YandexDiskApi, YandexDiskApiDummy
 
 
-# Default values for optional environment variables
+# Default values for optional parameters
 # See .env.example file for variable description.
-JSON_REPORT_PATH_DEFAULT = 'report.json'
-CLEAN_DEFAULT = ''
-OVERWRITE_DEFAULT = ''
-USE_RECYCLE_BIN_DEFAULT = 'Y'
-YD_ROOT_DIR_DEFAULT = 'disk:/dog_pictures'
-MAX_BREED_IMAGE_COUNT_DEFAULT = 10
-MAX_SUB_BREED_IMAGE_COUNT_DEFAULT = 1
-YD_TEST_DUMMY_DEFAULT = ''
+DEFAULT_PARAMS = {
+    'JSON_REPORT_PATH': 'report.json',
+    'CLEAN': '',
+    'OVERWRITE': '',
+    'USE_RECYCLE_BIN': 'Y',
+    'MAX_BREED_IMAGE_COUNT': 1,
+    'MAX_SUB_BREED_IMAGE_COUNT': 1,
+    'YD_ROOT_DIR': 'disk:/dog_pictures',
+    'YD_TEST_DUMMY': '',
+}
 
 
 class JsonReport:
@@ -50,61 +50,6 @@ class JsonReport:
         """Save program result object as pretty-printed JSON to a file."""
         with open(file_path, 'w', encoding=encoding) as f:
             json.dump(self._result, f, indent=4)
-
-
-def get_required_env_variable(name: str) -> str:
-    """Get the value of an environment variable or terminate program.
-
-    If the environment variable exists return its value. Otherwise print
-    an error message to STDERR and terminate the program with an error code.
-
-    Args:
-        name (str): Environment variable name whose value to extract.
-
-    Returns:
-        str: The value of existing environment variable.
-    """
-    if name not in os.environ:
-        sys.stderr.write(f'ERROR: Environment variable "{name}" is '
-                         f'required but not set. Please provide the '
-                         f'environment variable "{name}" and try again.')
-        sys.exit(1)
-    return os.environ[name]
-
-
-def get_optional_env_variable(name: str, default: str) -> str:
-    """Get the value of an environment variable or use a default value.
-
-    Args:
-        name (str): Environment variable name whose value to extract.
-        default (str): Default value to use if the variable is absent.
-
-    Returns:
-        str: The value of the environment variable or the default value.
-    """
-    return os.environ.get(name, default)
-
-
-def get_optional_env_variable_int(name: str, default: int) -> int:
-    """Get the value of an integer environment variable or use
-    a default value. The variable must contain a decimal integer value.
-
-    Args:
-        name (str): Environment variable name whose value to extract.
-        default (int): Default value to use if the variable is absent.
-
-    Returns:
-        int: The value of the environment variable or the default value.
-    """
-    value = os.environ.get(name, default)
-    try:
-        return int(value)
-    except ValueError:
-        sys.stderr.write(f'WARNING: Environment variable "{name}" must '
-                         f'contain a decimal integer value but "{value}" '
-                         f'is passed. Please set the environment variable '
-                         f'"{name}" to a correct value and try again.')
-        return default
 
 
 class BreedTqdm(tqdm):
@@ -230,45 +175,23 @@ class Application:
 
     def __init__(self) -> None:
         """Initialize an Application instance."""
+        self.params = Params(DEFAULT_PARAMS)
 
-        # Override missing environment variables with .env values
-        load_dotenv()
+        # Get required parameters
+        self.yd_key = self.params.get_required_str('YD_OAUTH_KEY')
 
-        # Get required variables
-        self.yd_key = get_required_env_variable('YD_OAUTH_KEY')
-
-        # Get optional variables
-        self.report_path = get_optional_env_variable(
-            'JSON_REPORT_PATH',
-            JSON_REPORT_PATH_DEFAULT
+        # Get optional parameters
+        self.report_path = self.params.get_optional_str('JSON_REPORT_PATH')
+        self.clean = self.params.get_optional_str('CLEAN')
+        self.overwrite = self.params.get_optional_str('OVERWRITE')
+        self.use_recycle_bin = self.params.get_optional_str('USE_RECYCLE_BIN')
+        self.root_dir = self.params.get_optional_str('YD_ROOT_DIR')
+        self.yd_test_dummy = self.params.get_optional_str('YD_TEST_DUMMY')
+        self.max_breed_images = self.params.get_optional_int(
+            'MAX_BREED_IMAGE_COUNT'
         )
-        self.clean = get_optional_env_variable(
-            'CLEAN',
-            CLEAN_DEFAULT
-        )
-        self.overwrite = get_optional_env_variable(
-            'OVERWRITE',
-            OVERWRITE_DEFAULT
-        )
-        self.use_recycle_bin = get_optional_env_variable(
-            'USE_RECYCLE_BIN',
-            USE_RECYCLE_BIN_DEFAULT
-        )
-        self.root_dir = get_optional_env_variable(
-            'YD_ROOT_DIR',
-            YD_ROOT_DIR_DEFAULT
-        )
-        self.max_breed_images = get_optional_env_variable_int(
-            'MAX_BREED_IMAGE_COUNT',
-            MAX_BREED_IMAGE_COUNT_DEFAULT
-        )
-        self.max_sub_breed_images = get_optional_env_variable_int(
-            'MAX_SUB_BREED_IMAGE_COUNT',
-            MAX_SUB_BREED_IMAGE_COUNT_DEFAULT
-        )
-        self.yd_test_dummy = get_optional_env_variable(
-            'YD_TEST_DUMMY',
-            YD_TEST_DUMMY_DEFAULT
+        self.max_sub_breed_images = self.params.get_optional_int(
+            'MAX_SUB_BREED_IMAGE_COUNT'
         )
 
         self.report = JsonReport()

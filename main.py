@@ -311,8 +311,10 @@ class Application:
 
         # Track progress while the thread is running
         progress = tqdm(
-            desc='Deleting root directory, this might take a while...',
-            unit=' seconds'
+            bar_format=(
+                'Deleting root directory, this might take a while...'
+                ' [{elapsed}{postfix}]'
+            )
         )
         with progress:
             thread = threading.Thread(target=thread_action)

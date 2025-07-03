@@ -287,3 +287,12 @@ class YandexDiskApiDummy(YandexDiskApi):
     def check_item_exists(self, item_path: str) -> bool:
         time.sleep(type(self).DUMMY_DELAY)
         return False
+
+    @override
+    def get_operation_status(self, operation_id: str) -> str:
+        time.sleep(type(self).DUMMY_DELAY)
+        return 'success'
+
+    @override
+    def wait_for_operation(self, operation_id: str):
+        time.sleep(type(self).DUMMY_DELAY)

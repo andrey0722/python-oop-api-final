@@ -178,14 +178,20 @@ class BasicWebApi:
             try:
                 response.raise_for_status()
             except requests.HTTPError as e:
-                # Append the response JSON to the exception
-                message = json.dumps(
-                    response.json(),
-                    indent=4,
-                    ensure_ascii=False
-                )
-                e.add_note(message)
+                # Append response message to the exception
+                e.add_note(self._get_response_message(response))
                 raise
+
+    def _get_response_message(self, response: requests.Response) -> str:
+        """Return a message string from HTTP response.
+
+        Args:
+            response (requests.Response): The response from HTTP request.
+        """
+        try:
+            return json.dumps(response.json(), indent=4, ensure_ascii=False)
+        except json.JSONDecodeError:
+            return response.text
 
     def _register_request(self):
         """Internal helper to register a new request in request history."""

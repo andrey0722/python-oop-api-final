@@ -33,63 +33,52 @@ class DogCeoApi(BasicWebApi):
         """
         return self._get('breeds/list/all')
 
-    def get_breed_images(self, breed: str) -> list[str]:
-        """Return list of all image URLs for a specified breed name.
-
-        Args:
-            breed (str): Dog breed name.
-        """
-        return self._get(f'breed/{breed}/images')
-
-    def get_breed_random_image(self, breed: str) -> str:
-        """Return a random image URL for a specified breed name.
-
-        Args:
-            breed (str): Dog breed name.
-        """
-        return self._get(f'breed/{breed}/images/random')
-
-    def get_breed_random_images(self, breed: str, count: int) -> list[str]:
-        """Return list of random image URLs for a specified breed name.
-
-        Args:
-            breed (str): Dog breed name.
-            count (int): Maximum image count to return.
-        """
-        return self._get(f'breed/{breed}/images/random/{count}')
-
-    def get_sub_breed_images(self, breed: str, sub_breed: str) -> list[str]:
+    def get_breed_images(
+        self,
+        breed: str,
+        sub_breed: str | None = None,
+    ) -> list[str]:
         """Return list of all image URLs for a specified sub-breed name.
 
         Args:
             breed (str): Dog breed name.
-            sub_breed (str): Dog sub-breed name.
+            sub_breed (str | None): Dog sub-breed name. If None or empty
+                string then use just the breed with no sub-breed.
         """
-        return self._get(f'breed/{breed}/{sub_breed}/images')
+        sub_breed_str = f'/{sub_breed}' if sub_breed else ''
+        return self._get(f'breed/{breed}{sub_breed_str}/images')
 
-    def get_sub_breed_random_image(self, breed: str, sub_breed: str) -> str:
+    def get_breed_random_image(
+        self,
+        breed: str,
+        sub_breed: str | None = None,
+    ) -> str:
         """Return a random image URL for a specified sub-breed name.
 
         Args:
             breed (str): Dog breed name.
-            sub_breed (str): Dog sub-breed name.
+            sub_breed (str | None): Dog sub-breed name. If None or empty
+                string then use just the breed with no sub-breed.
         """
-        return self._get(f'breed/{breed}/{sub_breed}/images/random')
+        sub_breed_str = f'/{sub_breed}' if sub_breed else ''
+        return self._get(f'breed/{breed}{sub_breed_str}/images/random')
 
-    def get_sub_breed_random_images(
+    def get_breed_random_images(
         self,
+        count: int,
         breed: str,
-        sub_breed: str,
-        count: int
+        sub_breed: str | None = None,
     ) -> list[str]:
         """Return list of random image URLs for a specified sub-breed name.
 
         Args:
-            breed (str): Dog breed name.
-            sub_breed (str): Dog sub-breed name.
             count (int): Maximum image count to return.
+            breed (str): Dog breed name.
+            sub_breed (str | None): Dog sub-breed name. If None or empty
+                string then use just the breed with no sub-breed.
         """
-        return self._get(f'breed/{breed}/{sub_breed}/images/random/{count}')
+        sub_breed_str = f'/{sub_breed}' if sub_breed else ''
+        return self._get(f'breed/{breed}{sub_breed_str}/images/random/{count}')
 
     def _get(self, endpoint: str):
         """Internal helper to perform a GET request to an API endpoint.

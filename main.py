@@ -74,6 +74,9 @@ class Application:
         self.dog_api = DogCeoApi()
         self.yd_api = self.create_yd_api()
 
+        # Minimal width of the progress bars description field
+        self.desc_width = 25
+
     def __enter__(self):
         """Do nothing."""
         return self
@@ -120,19 +123,23 @@ class Application:
                 time.sleep(1)
             thread.join()
 
-    def process_image(self, image: str, breed: str, sub_breed: str = ''):
+    def process_image(
+        self,
+        image: str,
+        breed: str,
+        sub_breed: str | None = None,
+    ):
         """Upload an image to YD cloud storage and add to report.
 
         Args:
             image (str): Image URL.
             breed (str): Dog breed.
-            sub_breed (str): Dog sub-breed.
+            sub_breed (str | None): Dog sub-breed. If None then use
+                the breed without sub-breed.
         """
         image_name = extract_base_name(image)
-        if sub_breed:
-            file_name = f'{breed}_{sub_breed}_{image_name}'
-        else:
-            file_name = f'{breed}_{image_name}'
+        sub_breed_str = f'_{sub_breed}' if sub_breed else ''
+        file_name = f'{breed}{sub_breed_str}_{image_name}'
         file_path = f'{self.settings.yd_root_dir}/{breed}/{file_name}'
         if self.settings.overwrite:
             # Recreate the file from scratch regardless if it exists
@@ -148,6 +155,66 @@ class Application:
         self.yd_api.upload_file_from_url(file_path, image)
         self.report.append(file_name)
 
+    def process_sub_breed(
+        self,
+        breed: str,
+        sub_breed: str | None,
+        progress: StagedTqdm,
+    ):
+        """Process images of an entire dog sub-breed (if any).
+
+        Args:
+            breed (str): Dog breed.
+            sub_breed (str | None): Dog sub-breed. If None then use
+                the breed without sub-breed.
+            progress (StagedTqdm): Breed progress.
+        """
+        if sub_breed:
+            count = self.settings.max_sub_breed_images
+        else:
+            count = self.settings.max_breed_images
+        images = self.dog_api.get_breed_random_images(count, breed, sub_breed)
+        sub_breed_str = f'-{sub_breed}' if sub_breed else ''
+        progress.set_description(self.format_desc(f'{breed}{sub_breed_str}'))
+        progress.reset_substage(len(images))
+        for image in images:
+            self.process_image(image, breed, sub_breed)
+            progress.update_substage()
+        progress.update_stage()
+
+    def process_breed(
+        self,
+        breed: str,
+        sub_breeds: list[str],
+        progress: StagedTqdm,
+    ):
+        """Process images of an entire dog breed.
+
+        Args:
+            breed (str): Dog breed.
+            sub_breeds (list[str]): Dog sub-breeds.
+            progress (StagedTqdm): Breed progress.
+        """
+        progress.reset_stage(len(sub_breeds))
+        if sub_breeds:
+            # Process all breed sub-breeds
+            for sub_breed in sub_breeds:
+                self.process_sub_breed(breed, sub_breed, progress)
+        else:
+            # No sub-breed, upload images just for the breed
+            self.process_sub_breed(breed, None, progress)
+
+    def format_desc(self, text: str) -> str:
+        """Format description string using minimum width.
+
+        Args:
+            text (str): Description text to format.
+
+        Returns:
+            str: Formatted descriotion text.
+        """
+        return f'{text:{self.desc_width}}'
+
     def main(self):
         """Get image URIs of all breeds and sub-breeds and save to YD storage.
 
@@ -162,12 +229,9 @@ class Application:
 
             breeds = self.dog_api.get_all_breeds_sub_breeds()
 
-            # Minimal width of the progress bars description field
-            desc_width = 25
-
             # Progress over all breeds (total program progress)
             total_progress = StagedTqdm(
-                desc=f'{'Total':{desc_width}}',
+                desc=self.format_desc('Total'),
                 substage_units='breeds',
             )
 
@@ -185,39 +249,7 @@ class Application:
                     self.yd_api.create_directory(
                         f'{self.settings.yd_root_dir}/{breed}'
                     )
-
-                    breed_progress.reset_stage(len(sub_breeds))
-
-                    if sub_breeds:
-                        # Process all breed sub-breeds
-                        for sub_breed in sub_breeds:
-                            images = self.dog_api.get_sub_breed_random_images(
-                                breed,
-                                sub_breed,
-                                self.settings.max_sub_breed_images,
-                            )
-                            breed_progress.set_description(
-                                f'{f'{breed}-{sub_breed}':{desc_width}}'
-                            )
-                            breed_progress.reset_substage(len(images))
-                            # Process sub-breed images
-                            for image in images:
-                                self.process_image(image, breed, sub_breed)
-                                breed_progress.update_substage()
-                            breed_progress.update_stage()
-                    else:
-                        # No sub-breed, upload images just for the breed
-                        images = self.dog_api.get_breed_random_images(
-                            breed,
-                            self.settings.max_breed_images,
-                        )
-                        breed_progress.set_description(f'{breed:{desc_width}}')
-                        breed_progress.reset_substage(len(images))
-
-                        # Process breed images
-                        for image in images:
-                            self.process_image(image, breed)
-                            breed_progress.update_substage()
+                    self.process_breed(breed, sub_breeds, breed_progress)
                     total_progress.update_substage()
         finally:
             self.report.save(self.settings.report_path)

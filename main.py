@@ -8,32 +8,43 @@ is formed and saved in JSON format to the working directory.
 
 """
 
-
 import json
 import threading
 import time
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from tqdm import tqdm
 
-from params import Params
 from dog_ceo_api import DogCeoApi
 from utils import StagedTqdm
 from web_api import extract_base_name
 from yandex_disk_api import YandexDiskApi, YandexDiskApiDummy
 
 
-# Default values for optional parameters
-# See .env.example file for variable description.
-DEFAULT_PARAMS = {
-    'JSON_REPORT_PATH': 'report.json',
-    'CLEAN': '',
-    'OVERWRITE': '',
-    'USE_RECYCLE_BIN': 'Y',
-    'MAX_BREED_IMAGE_COUNT': 1,
-    'MAX_SUB_BREED_IMAGE_COUNT': 1,
-    'YD_ROOT_DIR': 'disk:/dog_pictures',
-    'YD_TEST_DUMMY': '',
-}
+class Settings(BaseSettings):
+    """Project external parameters loaded from the environment.
+
+    See .env.example file for variable description.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
+
+    # Required parameters
+    yd_oauth_key: str
+
+    # Optional parameters
+    report_path: str = 'report.json'
+    clean: bool = False
+    overwrite: bool = False
+    use_recycle_bin: bool = True
+    max_breed_images: int = 1
+    max_sub_breed_images: int = 1
+    yd_root_dir: str = 'disk:/dog_pictures'
+    yd_test_dummy: bool = False
 
 
 class JsonReport:
@@ -58,28 +69,10 @@ class Application:
 
     def __init__(self) -> None:
         """Initialize an Application instance."""
-        self.params = Params(DEFAULT_PARAMS)
-
-        # Get required parameters
-        self.yd_key = self.params.get_required_str('YD_OAUTH_KEY')
-
-        # Get optional parameters
-        self.report_path = self.params.get_optional_str('JSON_REPORT_PATH')
-        self.clean = self.params.get_optional_str('CLEAN')
-        self.overwrite = self.params.get_optional_str('OVERWRITE')
-        self.use_recycle_bin = self.params.get_optional_str('USE_RECYCLE_BIN')
-        self.root_dir = self.params.get_optional_str('YD_ROOT_DIR')
-        self.yd_test_dummy = self.params.get_optional_str('YD_TEST_DUMMY')
-        self.max_breed_images = self.params.get_optional_int(
-            'MAX_BREED_IMAGE_COUNT'
-        )
-        self.max_sub_breed_images = self.params.get_optional_int(
-            'MAX_SUB_BREED_IMAGE_COUNT'
-        )
-
+        self.settings = Settings()  # type: ignore[reportCallIssue]
         self.report = JsonReport()
         self.dog_api = DogCeoApi()
-        self.yd_api = self.create_yd_api(bool(self.yd_test_dummy))
+        self.yd_api = self.create_yd_api()
 
     def __enter__(self):
         """Do nothing."""
@@ -94,16 +87,11 @@ class Application:
         self.dog_api.close()
         self.yd_api.close()
 
-    def create_yd_api(self, test: bool = False) -> YandexDiskApi:
-        """Create and return YD API instance.
-
-        Args:
-            test (bool): If True create test implementation. If False
-                create real implementation
-        """
-        if test:
-            return YandexDiskApiDummy(self.yd_key)
-        return YandexDiskApi(self.yd_key)
+    def create_yd_api(self) -> YandexDiskApi:
+        """Create and return YD API instance."""
+        if self.settings.yd_test_dummy:
+            return YandexDiskApiDummy(self.settings.yd_oauth_key)
+        return YandexDiskApi(self.settings.yd_oauth_key)
 
     def delete_root_directory(self):
         """Delete root directory with progress tracking."""
@@ -112,8 +100,10 @@ class Application:
         # if the root drectory is big, so use a thread
         def thread_action():
             """Delete root directory in a thread."""
-            permanently = not self.use_recycle_bin
-            self.yd_api.delete_item(self.root_dir, permanently=permanently)
+            self.yd_api.delete_item(
+                self.settings.yd_root_dir,
+                permanently=not self.settings.use_recycle_bin,
+            )
 
         # Track progress while the thread is running
         progress = tqdm(
@@ -143,14 +133,13 @@ class Application:
             file_name = f'{breed}_{sub_breed}_{image_name}'
         else:
             file_name = f'{breed}_{image_name}'
-        file_path = f'{self.root_dir}/{breed}/{file_name}'
-        if self.overwrite:
+        file_path = f'{self.settings.yd_root_dir}/{breed}/{file_name}'
+        if self.settings.overwrite:
             # Recreate the file from scratch regardless if it exists
-            permanently = not self.use_recycle_bin
             self.yd_api.delete_item(
                 file_path,
-                permanently=permanently,
-                ignore_non_existent=True
+                permanently=not self.settings.use_recycle_bin,
+                ignore_non_existent=True,
             )
         elif self.yd_api.check_item_exists(file_path):
             # When the file exists YD duplicates it with a suffix.
@@ -167,9 +156,9 @@ class Application:
         3. Create a report with uploaded image file names in JSON format.
         """
         try:
-            if self.clean:
+            if self.settings.clean:
                 self.delete_root_directory()
-            self.yd_api.create_directory(self.root_dir)
+            self.yd_api.create_directory(self.settings.yd_root_dir)
 
             breeds = self.dog_api.get_all_breeds_sub_breeds()
 
@@ -179,13 +168,13 @@ class Application:
             # Progress over all breeds (total program progress)
             total_progress = StagedTqdm(
                 desc=f'{'Total':{desc_width}}',
-                substage_units='breeds'
+                substage_units='breeds',
             )
 
             # Progress over current breed (sub-breed/images or images)
             breed_progress = StagedTqdm(
                 stage_units='sub-breeds',
-                substage_units='images'
+                substage_units='images',
             )
 
             with total_progress, breed_progress:
@@ -193,7 +182,9 @@ class Application:
 
                 # Process all breeds
                 for breed, sub_breeds in breeds.items():
-                    self.yd_api.create_directory(f'{self.root_dir}/{breed}')
+                    self.yd_api.create_directory(
+                        f'{self.settings.yd_root_dir}/{breed}'
+                    )
 
                     breed_progress.reset_stage(len(sub_breeds))
 
@@ -203,7 +194,7 @@ class Application:
                             images = self.dog_api.get_sub_breed_random_images(
                                 breed,
                                 sub_breed,
-                                self.max_sub_breed_images
+                                self.settings.max_sub_breed_images,
                             )
                             breed_progress.set_description(
                                 f'{f'{breed}-{sub_breed}':{desc_width}}'
@@ -218,7 +209,7 @@ class Application:
                         # No sub-breed, upload images just for the breed
                         images = self.dog_api.get_breed_random_images(
                             breed,
-                            self.max_breed_images
+                            self.settings.max_breed_images,
                         )
                         breed_progress.set_description(f'{breed:{desc_width}}')
                         breed_progress.reset_substage(len(images))
@@ -229,7 +220,7 @@ class Application:
                             breed_progress.update_substage()
                     total_progress.update_substage()
         finally:
-            self.report.save(self.report_path)
+            self.report.save(self.settings.report_path)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ is available at https://dog.ceo/dog-api/documentation/.
 
 
 from typing import Iterable
-from web_api import BasicWebApi, WebApiLimit
+from web_api import BasicWebApi, CORSProxy, WebApiLimit
 
 
 class DogCeoApi(BasicWebApi):
@@ -24,6 +24,7 @@ class DogCeoApi(BasicWebApi):
         *,
         api_root: str = API_ROOT_DEFAULT,
         api_limits: Iterable[WebApiLimit] | None = None,
+        cors_proxy: CORSProxy | None = None,
     ):
         """Initialize a dog API instance.
 
@@ -31,12 +32,15 @@ class DogCeoApi(BasicWebApi):
             api_root (str): Optional override for the API root URL.
             api_limits (Iterable[WebApiLimit] | None): Optional override for
                 the API request rate limit per second.
+            cors_proxy (CORSProxy | None): Optional CORS proxy to use
+                for redirecting API requests.
         """
         request_timeout = type(self).REQUEST_TIMEOUT
         super().__init__(
             api_root=api_root,
             request_timeout=request_timeout,
             api_limits=api_limits,
+            cors_proxy=cors_proxy,
         )
 
     def get_all_breeds_sub_breeds(self) -> dict[str, list[str]]:

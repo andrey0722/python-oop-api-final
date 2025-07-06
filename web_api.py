@@ -2,6 +2,7 @@
 Web APIs using HTTP requests.
 """
 
+import itertools
 import json
 import time
 from typing import Any, Iterable, NamedTuple, Set
@@ -24,6 +25,35 @@ class WebApiLimit(NamedTuple):
     rate_limit: int
 
 
+class CORSProxy:
+    """Defines an abstract CORS proxy for requests redirecting."""
+
+    @property
+    def headers(self) -> dict[str, Any]:
+        """HTTP headers to use in requests."""
+        return {}
+
+    @property
+    def limits(self) -> Iterable[WebApiLimit]:
+        """Proxy rate limits to respect."""
+        return tuple()
+
+    def construct_url(self, url: str) -> str:
+        """Return URL using proxy for input URL.
+
+        Args:
+            url (str): Request URL.
+        """
+        raise NotImplementedError
+
+    def process_response(self, response: requests.Response):
+        """Post-process the response after request.
+
+        Args:
+            response (requests.Response): Request response.
+        """
+
+
 class BasicWebApi:
     """A class which instance communicates with Web API and keeps its
     request rate within limit.
@@ -43,9 +73,10 @@ class BasicWebApi:
         *,
         oauth_key: str | None = None,
         api_limits: Iterable[WebApiLimit] | None = None,
+        cors_proxy: CORSProxy | None = None,
         rate_limit_sleep: float = RATE_LIMIT_SLEEP_DEFAULT,
         request_history_expire: float = REQUEST_HISTORY_EXPIRE_DEFAULT,
-        request_timeout: float | tuple[float, float] = REQUEST_TIMEOUT_DEFAULT
+        request_timeout: float | tuple[float, float] = REQUEST_TIMEOUT_DEFAULT,
     ):
         """Initialize an API instance.
 
@@ -56,6 +87,8 @@ class BasicWebApi:
             api_limits (Iterable[WebApiLimit] | None): API request rate
                 limits per specified period. None means no rate limit
                 for this API.
+            cors_proxy (CORSProxy | None): Optional CORS proxy to use
+                for redirecting API requests.
             rate_limit_sleep (float): A number of seconds to sleep when
                 the user hit API request rate limit. A low value will
                 yield more requests in total within API rate limits.
@@ -69,6 +102,7 @@ class BasicWebApi:
         self._oauth_key = oauth_key
         self._api_limits = list(api_limits) if api_limits else []
         self._rate_limit_sleep = rate_limit_sleep
+        self._cors_proxy = cors_proxy
         self._request_history_expire = request_history_expire
         self._request_timeout = request_timeout
         self._request_history: list[float] = []
@@ -130,6 +164,8 @@ class BasicWebApi:
 
         # Prepare the request parameters
         url = f'{self._api_root}/{endpoint}'
+        if self._cors_proxy is not None:
+            url = self._cors_proxy.construct_url(url)
         headers = self._construct_headers(headers)
 
         # Perform the request
@@ -141,6 +177,8 @@ class BasicWebApi:
             headers=headers,
             timeout=self._request_timeout
         )
+        if self._cors_proxy is not None:
+            self._cors_proxy.process_response(response)
         self._raise_error(response, suppress)
         return response
 
@@ -155,6 +193,8 @@ class BasicWebApi:
             headers (dict[str, Any] | None): Input HTTP headers.
         """
         result = self._get_common_headers()
+        if self._cors_proxy is not None:
+            result.update(self._cors_proxy.headers)
         if headers is not None:
             result.update(headers)
         return result
@@ -257,7 +297,8 @@ class BasicWebApi:
         request rate is back within specified API rate limit.
         """
         # Respect the rate limits sequentially
-        for limit in self._api_limits:
+        proxy_limits = self._cors_proxy.limits if self._cors_proxy else []
+        for limit in itertools.chain(self._api_limits, proxy_limits):
             while self.get_rate_per_period(limit.period) >= limit.rate_limit:
                 # Ensure we don't violate specified limit per period
                 time.sleep(self._rate_limit_sleep)

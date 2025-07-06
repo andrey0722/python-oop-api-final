@@ -10,7 +10,7 @@ from typing import Any, Iterable, Set, override
 
 import requests
 
-from web_api import BasicWebApi, WebApiLimit, extract_base_name
+from web_api import BasicWebApi, CORSProxy, WebApiLimit, extract_base_name
 
 
 class YandexDiskApi(BasicWebApi):
@@ -42,7 +42,8 @@ class YandexDiskApi(BasicWebApi):
         oauth_key: str,
         *,
         api_root: str = API_ROOT_DEFAULT,
-        api_limits: Iterable[WebApiLimit] = (API_LIMIT_DEFAULT,)
+        api_limits: Iterable[WebApiLimit] = (API_LIMIT_DEFAULT,),
+        cors_proxy: CORSProxy | None = None,
     ):
         """Initialize a Yandex.Disk API instance.
 
@@ -52,13 +53,16 @@ class YandexDiskApi(BasicWebApi):
             api_root (str): Optional override for the API root URL.
             api_limits (Iterable[WebApiLimit]): Optional override for
                 the API request rate limit per second.
+            cors_proxy (CORSProxy | None): Optional CORS proxy to use
+                for redirecting API requests.
         """
         request_timeout = type(self).REQUEST_TIMEOUT
         super().__init__(
             oauth_key=oauth_key,
             api_root=api_root,
             api_limits=api_limits,
-            request_timeout=request_timeout
+            cors_proxy=cors_proxy,
+            request_timeout=request_timeout,
         )
 
     def create_directory(

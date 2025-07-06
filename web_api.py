@@ -4,7 +4,7 @@ Web APIs using HTTP requests.
 
 import json
 import time
-from typing import Any, Iterable, Set
+from typing import Any, Iterable, NamedTuple, Set
 
 import requests
 
@@ -14,6 +14,14 @@ def extract_base_name(uri: str):
     uri = uri.split('?')[0]    # Strip possible ?query component
     uri = uri.split('#')[0]    # Strip possible #fragment component
     return uri.split('/')[-1]  # Extract the last component in URI path
+
+
+class WebApiLimit(NamedTuple):
+    """Describes generic API request rate limit. The specified rate limit
+    must be respected during the specified time period in seconds.
+    """
+    period: float
+    rate_limit: int
 
 
 class BasicWebApi:
@@ -34,7 +42,7 @@ class BasicWebApi:
         api_root: str,
         *,
         oauth_key: str | None = None,
-        limit_per_second: int | None = None,
+        api_limits: Iterable[WebApiLimit] | None = None,
         rate_limit_sleep: float = RATE_LIMIT_SLEEP_DEFAULT,
         request_history_expire: float = REQUEST_HISTORY_EXPIRE_DEFAULT,
         request_timeout: float | tuple[float, float] = REQUEST_TIMEOUT_DEFAULT
@@ -45,8 +53,9 @@ class BasicWebApi:
             api_root (str): API root URL.
             oauth_key (str): OAuth key to use in requests to this API.
                 None means no OAuth authorization is needed.
-            limit_per_second (int): API request rate limit per second.
-                None means no rate limit for this API.
+            api_limits (Iterable[WebApiLimit] | None): API request rate
+                limits per specified period. None means no rate limit
+                for this API.
             rate_limit_sleep (float): A number of seconds to sleep when
                 the user hit API request rate limit. A low value will
                 yield more requests in total within API rate limits.
@@ -58,7 +67,7 @@ class BasicWebApi:
         """
         self._api_root = api_root
         self._oauth_key = oauth_key
-        self._limit_per_second = limit_per_second
+        self._api_limits = list(api_limits) if api_limits else []
         self._rate_limit_sleep = rate_limit_sleep
         self._request_history_expire = request_history_expire
         self._request_timeout = request_timeout
@@ -73,15 +82,18 @@ class BasicWebApi:
         """Close the session."""
         self.close()
 
-    @property
-    def requests_per_second(self) -> int:
-        """A number of requests performed during last second."""
-        self._clear_expired_requests()
-        return self._count_history(1)
-
     def close(self):
         """Close the session."""
         self._session.close()
+
+    def get_rate_per_period(self, period: float) -> int:
+        """Return number of requests performed during time period.
+
+        Args:
+            period (float): Time period in seconds.
+        """
+        self._clear_expired_requests()
+        return self._count_history(period)
 
     def _request(
         self,
@@ -239,12 +251,13 @@ class BasicWebApi:
         return sum(1 for _ in self._get_history_for_period(period_secs))
 
     def _wait_for_api_limits(self):
-        """Internal helper to avoid violating API rate limits.
+        """Internal helper to avoid violating API all rate limits.
 
         Sleep for `self._rate_limit_sleep` seconds until current
         request rate is back within specified API rate limit.
         """
-        if self._limit_per_second is not None:
-            while self.requests_per_second >= self._limit_per_second:
-                # Ensure we don't violate per-second limit
+        # Respect the rate limits sequentially
+        for limit in self._api_limits:
+            while self.get_rate_per_period(limit.period) >= limit.rate_limit:
+                # Ensure we don't violate specified limit per period
                 time.sleep(self._rate_limit_sleep)

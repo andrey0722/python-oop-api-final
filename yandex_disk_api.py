@@ -6,11 +6,11 @@ The API documentation is available at https://yandex.ru/dev/disk-api/doc/ru/.
 
 
 import time
-from typing import Any, Set, override
+from typing import Any, Iterable, Set, override
 
 import requests
 
-from web_api import BasicWebApi, extract_base_name
+from web_api import BasicWebApi, WebApiLimit, extract_base_name
 
 
 class YandexDiskApi(BasicWebApi):
@@ -20,7 +20,8 @@ class YandexDiskApi(BasicWebApi):
 
     # Clause 2.2 of the Yandex.Disk API terms of use:
     # https://yandex.ru/legal/disk_api/ru/#2-usloviya-ispolzovaniya-servisa
-    MAX_REQUESTS_PER_SECOND = 40
+    # No more than 40 requests per second.
+    API_LIMIT_DEFAULT = WebApiLimit(period=1, rate_limit=40)
 
     # Sometimes YD storage temporarily locks a resource after an operation.
     # In this case YD API returns error 423 on resource modification attempt.
@@ -41,7 +42,7 @@ class YandexDiskApi(BasicWebApi):
         oauth_key: str,
         *,
         api_root: str = API_ROOT_DEFAULT,
-        limit_per_second: int = MAX_REQUESTS_PER_SECOND
+        api_limits: Iterable[WebApiLimit] = (API_LIMIT_DEFAULT,)
     ):
         """Initialize a Yandex.Disk API instance.
 
@@ -49,14 +50,14 @@ class YandexDiskApi(BasicWebApi):
             oauth_key (str): Yandex.Disk personal API key acquired from
                 https://yandex.ru/dev/disk/poligon/.
             api_root (str): Optional override for the API root URL.
-            limit_per_second (int): Optional override for the API request
-                rate limit per second.
+            api_limits (Iterable[WebApiLimit]): Optional override for
+                the API request rate limit per second.
         """
         request_timeout = type(self).REQUEST_TIMEOUT
         super().__init__(
             oauth_key=oauth_key,
             api_root=api_root,
-            limit_per_second=limit_per_second,
+            api_limits=api_limits,
             request_timeout=request_timeout
         )
 

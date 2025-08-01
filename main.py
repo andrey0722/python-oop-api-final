@@ -233,12 +233,14 @@ class Application:
             total_progress = StagedTqdm(
                 desc=self.format_desc('Total'),
                 substage_units='breeds',
+                disable=True,
             )
 
             # Progress over current breed (sub-breed/images or images)
             breed_progress = StagedTqdm(
                 stage_units='sub-breeds',
                 substage_units='images',
+                disable=True,
             )
 
             with total_progress, breed_progress:

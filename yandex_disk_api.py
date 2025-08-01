@@ -121,9 +121,7 @@ class YandexDiskApi(BasicWebApi):
         )
         if response.status_code == 202:
             # YD performs async delete
-            operation: dict[str, Any] = response.json()
-            operation_id = extract_base_name(operation['href'])
-            self.wait_for_operation(operation_id)
+            self.wait_for_operation(self._get_operation_id(response))
 
     def upload_file_from_url(self, file_path: str, upload_url: str):
         """Create a file in YD storage and fill it with data from URL.
@@ -142,11 +140,14 @@ class YandexDiskApi(BasicWebApi):
             'url': upload_url,
             'path': file_path,
         }
-        self._request(
+        response = self._request(
             'POST',
             'disk/resources/upload',
             params=params
         )
+        if response.status_code == 202:
+            # Wait until upload finishes
+            self.wait_for_operation(self._get_operation_id(response))
 
     def check_item_exists(self, item_path: str) -> bool:
         """Check whether an item exists in YD cloud storage.
@@ -199,9 +200,20 @@ class YandexDiskApi(BasicWebApi):
             HTTPError: an error occurred while accessing YD server.
         """
         status = self.get_operation_status(operation_id)
+        print(f'Operation status: {status}')
         while status != 'success':
             time.sleep(type(self).WAIT_FOR_OPERATION_SLEEP)
             status = self.get_operation_status(operation_id)
+            print(f'Operation status: {status}')
+
+    def _get_operation_id(self, response: requests.Response) -> str:
+        """Internal helper to extract operation id from YD response.
+
+        Args:
+            response (requests.Response): YD HTTP response.
+        """
+        operation: dict[str, Any] = response.json()
+        return extract_base_name(operation['href'])
 
     @override
     def _request(
